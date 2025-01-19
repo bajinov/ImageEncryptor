@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decrypt Image</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-color: rgba(0, 0, 0, 0.6);
+            position: relative;
+        }
+        .container {
+            text-align: center;
+            position: relative;
+            padding: 40px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            width: 80%;
+            max-width: 1000px;
+        }
+        h2 {
+            font-size: 2rem;
+        }
+        .button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #ffffff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        input[type="text"], input[type="file"] {
+            padding: 10px;
+            margin: 10px;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        .image-box {
+            margin-top: 20px;
+            padding: 20px;
+            border: 2px solid #fff;
+            border-radius: 10px;
+            display: inline-block;
+            text-align: center;
+            max-width: 100%;
+            width: 45%;
+            position: relative;
+            margin-left: 20px; /* Shift the box left */
+        }
+        .image-box img {
+            max-width: 100%;
+            max-height: 300px;
+        }
+        .download-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #ffffff;
+            background-color: #28a745;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            position: absolute;
+            bottom: 10px; /* Position the button at the bottom of the box */
+            left: 50%;
+            transform: translateX(-50%); /* Center the button horizontally */
+        }
+        .download-button:hover {
+            background-color: #218838;
+        }
+        video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Background Video -->
+    <video autoplay muted loop>
+        <source src="Im.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <div class="container">
+        <!-- Left Section: Form -->
+        <div>
+            <h2>Decrypt Image</h2>
+            <input type="file" id="decryptInput" accept="image/*" required><br><br>
+            <input type="text" id="decryptionKey" placeholder="Enter decryption key (optional)"><br><br>
+            <button class="button" onclick="decryptImage()">Decrypt</button>
+            <button class="button" onclick="window.location.href='index.html'">Back</button>
+        </div>
+
+        <!-- Right Section: Image Box and Download Button -->
+        <div id="decryptedImageBox" class="image-box" style="display:none;">
+            <h3>Decrypted Image</h3>
+            <img id="decryptedImage" src="" alt="Decrypted Image">
+            <button id="downloadDecryptedButton" class="download-button" style="display:none;" onclick="downloadDecryptedImage()">Download Decrypted Image</button>
+        </div>
+    </div>
+
+    <script>
+        // PRNG using a key (hashed) to generate a seed
+        function seededRandom(seed) {
+            let x = Math.sin(seed) * 10000;
+            return x - Math.floor(x);
+        }
+
+        // Function to generate a numeric seed from a string key
+        function generateSeedFromKey(key) {
+            let hash = 0;
+            for (let i = 0; i < key.length; i++) {
+                hash = (hash << 5) - hash + key.charCodeAt(i);
+            }
+            return hash;
+        }
+
+        function decryptImage() {
+            const fileInput = document.getElementById('decryptInput');
+            let key = document.getElementById('decryptionKey').value; 
+            if (fileInput.files.length === 0) {
+                alert('Please select an image file.');
+                return;
+            }
+
+            // Use a default key if no key is provided
+            if (!key) {
+                key = "defaultKey"; // Default key for decryption
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const image = new Image();
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                image.src = event.target.result;
+                image.onload = function() {
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    ctx.drawImage(image, 0, 0);
+
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+                    const seed = generateSeedFromKey(key); // Generate seed from key
+                    for (let i = 0; i < data.length; i += 4) {
+                        // Decrypt the pixels
+                        data[i] = (data[i] - Math.floor(seededRandom(seed + i) * 256) + 256) % 256;
+                        data[i + 1] = (data[i + 1] - Math.floor(seededRandom(seed + i + 1) * 256) + 256) % 256;
+                        data[i + 2] = (data[i + 2] - Math.floor(seededRandom(seed + i + 2) * 256) + 256) % 256;
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+
+                    // Show decrypted image in the box
+                    const decryptedImageBox = document.getElementById('decryptedImageBox');
+                    const decryptedImage = document.getElementById('decryptedImage');
+                    decryptedImage.src = canvas.toDataURL();
+                    decryptedImageBox.style.display = 'block';
+
+                    // Show download button
+                    const downloadButton = document.getElementById('downloadDecryptedButton');
+                    downloadButton.style.display = 'block';
+
+                    alert('Image decrypted successfully!');
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function downloadDecryptedImage() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const decryptedImage = document.getElementById('decryptedImage');
+            const image = new Image();
+            image.src = decryptedImage.src;
+            image.onload = function() {
+                canvas.width = image.width;
+                canvas.height = image.height;
+                ctx.drawImage(image, 0, 0);
+                const link = document.createElement('a');
+                link.download = 'decrypted-image.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            };
+        }
+    </script>
+
+</body>
+</html>
